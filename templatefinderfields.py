@@ -108,8 +108,7 @@ class TemplateCharField(models.CharField):
             'pattern': self._pattern,
             'display_names': self._display_names,
             'form_class': TemplateChoiceField,
-            'matches': self.fnmatcher.get_matches(),
-            # 'required': not self.blank,
+            'choices': self.fnmatcher.get_matches,
         }
         if 'widget' in kwargs:
             if kwargs['widget']().__class__ == AdminTextInputWidget:
@@ -153,16 +152,19 @@ class TemplateChoiceField(forms.TypedChoiceField):
         kwargs['coerce'] = force_text
         self._pattern = pattern
         self._display_names = display_names
-        if 'matches' in kwargs:
-            self._templates = kwargs.pop('matches')
+        # twiddle over the choices.
+        if 'choices' in kwargs:
+            templates = kwargs.pop('choices')
+            if callable(templates):
+                templates = templates()
         else:
-           self._templates = find_all_templates(pattern=pattern)
+           templates = find_all_templates(pattern=pattern)
+        choices = list(template_choices(templates=templates,
+                                        display_names=self._display_names))
+        kwargs.update(choices=choices)
         super(TemplateChoiceField, self).__init__(*args, **kwargs)
-        choices = list(template_choices(
-            templates=self._templates, display_names=self._display_names))
         if not self.required or len(choices) == 0:
-            choices = BLANK_CHOICE_DASH + choices
-        self.choices = choices
+            self.choices = BLANK_CHOICE_DASH + choices
 
     def __repr__(self):
         return ('%(mod)s.%(cls)s(pattern="%(pat)s", display_names=%(names)r, '
